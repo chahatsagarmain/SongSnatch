@@ -79,3 +79,5 @@ ipython_config.py
 
 # Logs
 *.log
+.cache
+songs/

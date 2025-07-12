@@ -16,6 +16,7 @@ connectRabbit().then(() => {
     console.log("connected rabbit");
 }).catch((error) => {
     console.log(`error connecting rabbit ${error}`);
+    process.exit(1);
 });
 
 app.get("/" , (req , res) => {

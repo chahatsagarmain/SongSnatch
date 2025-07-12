@@ -177,7 +177,6 @@ python3 consumer.py
 | `GET`  | `/v1/find?url=<spotify_url>` | Queue a Spotify download job  |
 | `GET`  | `/v1/status?jobId=<job_id>`  | Check job status in Redis     |
 | `GET`  | `/v1/download/:song_name`    | Download a completed MP3 file |
-| `GET`  | `/v1/song/list`              | List all downloaded songs     |
 
 ---
 

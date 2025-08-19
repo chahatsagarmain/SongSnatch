@@ -9,9 +9,7 @@ songs_dir = "./songs/"
 
 @song_router.get("/list")
 async def list_songs():
-    if not os.path.exists(songs_dir):
-        # return HTTPException(status_code=404)
-        os.makedirs(songs_dir)
+    os.makedirs(songs_dir , exist_ok=True)
     song_names = []
     for file_name in os.listdir(songs_dir):
         if file_name.endswith(".mp3"):

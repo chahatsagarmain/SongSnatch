@@ -18,6 +18,7 @@ async def root():
     return JSONResponse(status_code=200,
                         content={"message" : "/ route"})
 
-if __name__ == "__main__":
-    port = int(os.getenv("WORKER_PORT", 8000))
-    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
+# Uncomment when running locally
+# if __name__ == "__main__":
+#     port = int(os.getenv("WORKER_PORT", 8000))
+#     uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)

@@ -15,13 +15,6 @@ app = FastAPI()
 app.include_router(spotify_router , prefix="/v1")
 app.include_router(song_router , prefix="/v1")
 
-@app.exception_handler(Exception)
-async def internal_exception_handler(request: Request, exc: Exception):
-    return JSONResponse(
-        status_code=HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"detail": "Internal Server Error", "error": str(exc)}
-    )
-
 @app.get("/")
 async def root():
     return JSONResponse(status_code=200,

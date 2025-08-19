@@ -22,6 +22,7 @@ async def list_songs():
 @song_router.get("/download/{song_name}")
 async def download_song(song_name : str):
     song_path = os.path.join(songs_dir , song_name)
+    print(song_path)
     if os.path.exists(song_path) and song_path.endswith(".mp3"):
         return FileResponse(path=song_path,
                             status_code=200,

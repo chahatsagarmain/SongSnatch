@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from router.spotify import spotify_router
 from router.songs import song_router
+from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
 
 load_dotenv(dotenv_path="../.env")
 
@@ -12,6 +13,13 @@ app = FastAPI()
 
 app.include_router(spotify_router , prefix="/v1")
 app.include_router(song_router , prefix="/v1")
+
+@app.exception_handler(Exception)
+async def internal_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"detail": "Internal Server Error", "error": str(exc)}
+    )
 
 @app.get("/")
 async def root():

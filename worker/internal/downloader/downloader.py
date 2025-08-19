@@ -2,7 +2,8 @@ import yt_dlp
 import os
 from typing import Optional
 
-song_path = "./songs/"
+# song_path = "./songs/"
+song_path = "/tmp/songs/" # vercel temp directory 
 
 def download_first_youtube_audio(query: str) -> Optional[str]:
     if not os.path.exists(song_path):

@@ -5,7 +5,9 @@ from fastapi.responses import JSONResponse , FileResponse
 
 song_router = APIRouter(prefix="/song",tags=["songs"])
 
-songs_dir = "./songs/"
+# songs_dir = "./songs/"
+songs_dir = "/tmp/songs/" # use temporary directory on vercel 
+
 
 @song_router.get("/list")
 async def list_songs():

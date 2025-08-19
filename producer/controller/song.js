@@ -44,7 +44,7 @@ async function getJobStatus(req , res , next) {
 function getSong(req , res , next) {
     const song = req.params.song;
     if(!song) return res.send(404).json({"message" : "No song name specified"});
-    const songPath = path.join("../worker/songs/",song);
+    const songPath = path.join("/temp/songs/",song);
     const absSongPath = path.resolve(songPath);
     if(fs.existsSync(absSongPath)){
         return res.status(200).sendFile(absSongPath);

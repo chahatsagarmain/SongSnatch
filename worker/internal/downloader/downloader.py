@@ -20,7 +20,8 @@ def download_first_youtube_audio(query: str) -> Optional[str]:
                 'preferredcodec': 'mp3',
                 'preferredquality': '192',
             }
-        ]
+        ],
+        'sleep_requests': 4
     }
 
     search_query = f"ytsearch1:{query}"

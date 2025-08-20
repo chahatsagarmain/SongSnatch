@@ -31,6 +31,6 @@ def download_first_youtube_audio(query: str) -> Optional[str]:
         filename = ydl.prepare_filename(info['entries'][0])
         if not info or not filename:
             return None
-        return filename.replace(".webm", ".mp3").replace(".m4a", ".mp3")
+        return filename.replace(".webm", ".mp3").replace(".m4a", ".mp3").replace(".mp4",".mp3")
 
     return None

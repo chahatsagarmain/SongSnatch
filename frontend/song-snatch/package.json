@@ -9,11 +9,17 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@heroui/react": "^2.8.2",
+    "@heroui/spinner": "^2.2.21",
+    "@heroui/system": "^2.4.20",
+    "@heroui/theme": "^2.4.20",
     "@tailwindcss/postcss": "^4.1.12",
+    "framer-motion": "^12.23.12",
     "next": "15.4.7",
     "postcss": "^8.5.6",
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "react-spinners": "^0.17.0",
     "tailwindcss": "^4.1.12"
   }
 }

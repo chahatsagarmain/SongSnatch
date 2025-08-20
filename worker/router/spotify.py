@@ -21,7 +21,8 @@ async def download(url : str):
             path = downloader.download_first_youtube_audio(query)
             if path is None:
                 raise ValueError()
-            song_names.append((path.split("/")[-1]).split(".")[0] + ".mp3")
+            song_name = path.split("/")[-1]
+            song_names.append(song_name)
         else:
             track_list_model = spotify.get_track_list_metadata(url , content_type)
             for track_model in track_list_model:
@@ -29,7 +30,7 @@ async def download(url : str):
                 path = downloader.download_first_youtube_audio(query)
                 if path is None:
                     continue
-                song_names.append((path.split("/")[-1]).split(".")[0] + ".mp3")
+                song_names.append((path.split("/")[-1]))
 
     except Exception as e:
         raise HTTPException(status_code=500,

@@ -2,7 +2,7 @@
 
 This project provides an integrated **FastAPI backend** and **Typer CLI tool** to download songs from Spotify links (track, album, or playlist) by searching for the corresponding YouTube audio and saving it locally as `.mp3`.
 
-Apart from the above methods the whole application can be run as a scalable backend using Worker Queue (in our case RabbitMQ) . NodeJS server produces messages which is consumed by our python program to download songs . 
+Apart from the above methods the whole application can be run as a scalable backend using Worker Queue (in our case RabbitMQ) . NodeJS server produces messages which is consumed by our python worker to download songs . 
 
 A deployed instance should be available on https://song-snatch.vercel.app/ , The frontend is deployed on vercel and backend is deployed locally on my laptop exposed with tunneling to a static domain . 
 

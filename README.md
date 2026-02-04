@@ -104,29 +104,182 @@ curl -X POST "http://localhost:8000/v1/spotify/find?url=https://open.spotify.com
 ```
 ---
 
-## 🛠️ Setup: SongSnatch with Worker Queue
+## 🛠️ Setup: SongSnatch with Worker Queue & Docker
 
-This project allows users to download songs from Spotify (track, album, or playlist) using a background worker architecture with:
+This project uses a **containerized microservices architecture** with separate producer and worker services:
 
-* ✅ **Node.js** (API producer)
-* ✅ **Python** (worker/consumer)
-* ✅ **Redis** (job tracking)
-* ✅ **RabbitMQ** (task queue)
-
----
-
-### ✅ Prerequisites
-
-Ensure the following are installed:
-
-* [Node.js](https://nodejs.org/)
-* [Python 3.8+](https://www.python.org/)
-* [Docker](https://www.docker.com/)
-* `pip3` (Python package installer)
+* ✅ **Node.js Producer** (API server) – queues download jobs via RabbitMQ
+* ✅ **Python Worker** (FastAPI + background consumer) – downloads songs from Spotify/YouTube
+* ✅ **Redis** – persistent job state storage
+* ✅ **RabbitMQ** – message queue for job distribution
+* ✅ **Prometheus** – metrics collection from services
+* ✅ **Grafana** – visualization dashboards
 
 ---
 
-### 🐇 1. Start RabbitMQ (with Management UI)
+### 🐳 Quick Start with Docker Compose
+
+**Prerequisites:**
+- [Docker](https://www.docker.com/)
+- [Docker Compose](https://docs.docker.com/compose/)
+
+**1. Create `.env` file with Spotify credentials:**
+
+```bash
+cp .env.example .env
+# Edit .env and add:
+SPOTIFY_CLIENT_ID=your_client_id
+SPOTIFY_CLIENT_SECRET=your_client_secret
+```
+
+**2. Start all services:**
+
+```bash
+docker compose up --build
+```
+
+This starts:
+- **Producer API**: http://localhost:8000 (Node.js Express)
+- **Worker API**: http://localhost:8080 (Python FastAPI)
+- **RabbitMQ UI**: http://localhost:15672 (guest/guest)
+- **Prometheus**: http://localhost:9090
+- **Grafana**: http://localhost:3100 (admin/admin)
+
+---
+
+### 🌐 API Endpoints
+
+| Method | Route                        | Service    | Description                   |
+| ------ | ---------------------------- | ---------- | ----------------------------- |
+| `GET`  | `/v1/find?url=<spotify_url>` | Producer   | Queue a Spotify download job  |
+| `GET`  | `/v1/status?jobId=<job_id>`  | Producer   | Check job status in Redis     |
+| `GET`  | `/v1/download/:song_name`    | Producer   | Download a completed MP3 file |
+| `GET`  | `/v1/song/list`              | Worker     | List all downloaded songs     |
+| `GET`  | `/metrics`                   | Both       | Prometheus metrics endpoint   |
+
+---
+
+### 📊 Monitoring & Metrics
+
+Both services export Prometheus metrics:
+
+**Producer Metrics** (`http://localhost:8000/metrics`):
+- `producer_jobs_created_total` – Total jobs queued (with status label)
+- `producer_job_status_checks_total` – Total status requests
+- `producer_redis_connected` – Redis connection status (1/0)
+- `producer_rabbit_connected` – RabbitMQ connection status (1/0)
+
+**Worker Metrics** (`http://localhost:8080/metrics`):
+- `worker_jobs_processed_total` – Total jobs completed/failed (with status label)
+- `worker_songs_downloaded_total` – Total songs downloaded (with status label)
+- `worker_download_duration_seconds` – Download time histogram
+- `worker_active_downloads` – Currently active downloads
+- `worker_redis_connected` – Redis connection status (1/0)
+- `worker_rabbit_connected` – RabbitMQ connection status (1/0)
+
+**View Metrics:**
+1. **Prometheus UI**: http://localhost:9090 → Query metrics directly
+2. **Grafana**: http://localhost:3100 → Create custom dashboards
+   - Data source is auto-configured to Prometheus
+
+---
+
+### 📦 Example API Requests
+
+#### 🎶 Queue a song/album/playlist for download
+
+```bash
+curl "http://localhost:8000/v1/find?url=https://open.spotify.com/album/6AyUVv7MnxxTuijp4WmrhO"
+```
+
+Response:
+```json
+{
+  "message": "Job created",
+  "jobId": "0197fe57-6334-767e-aae2-0dd415799d46"
+}
+```
+
+#### 📊 Check job status
+
+```bash
+curl "http://localhost:8000/v1/status?jobId=0197fe57-6334-767e-aae2-0dd415799d46"
+```
+
+Response:
+```json
+{
+  "data": {
+    "jobId": "0197fe57-6334-767e-aae2-0dd415799d46",
+    "status": "completed",
+    "songs": ["Muse - Unintended.mp3"],
+    "completedAt": "2026-02-05T12:34:56.789Z"
+  }
+}
+```
+
+#### 📥 Download a specific MP3 file
+
+```bash
+curl "http://localhost:8000/v1/download/Muse%20-%20Unintended.mp3" --output song.mp3
+```
+
+---
+
+### 🔧 Service Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                   Docker Compose Network                     │
+├─────────────────────────────────────────────────────────────┤
+│                                                               │
+│  ┌─────────────┐         ┌──────────────┐                   │
+│  │  Producer   │         │   Worker     │                   │
+│  │  (Node.js)  │──RMQ──▶ │ (FastAPI)    │                   │
+│  │  :8000      │  RMQ  │ :8080         │                   │
+│  └─────────────┘  ◀────┘ │              │                   │
+│         │                 │ worker-      │                   │
+│         │                 │ consumer     │                   │
+│         │                 └──────────────┘                   │
+│         │                       │                             │
+│         └──────────────┬────────┘                             │
+│                        │                                      │
+│              ┌─────────▼────────┐                             │
+│              │  Shared Volume   │                             │
+│              │  /tmp/songs      │                             │
+│              └──────────────────┘                             │
+│                                                               │
+│  ┌──────────┐  ┌─────────┐  ┌──────────────┐                │
+│  │  Redis   │  │RabbitMQ │  │ Prometheus   │                │
+│  │ :6379    │  │ :5672   │  │ :9090        │                │
+│  └──────────┘  └─────────┘  └──────────────┘                │
+│                                      │                        │
+│                              ┌───────▼────────┐              │
+│                              │  Grafana       │              │
+│                              │  :3100 (UI)    │              │
+│                              └────────────────┘              │
+│                                                               │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 🛑 Stop Services
+
+```bash
+docker compose down
+```
+
+Remove volumes:
+```bash
+docker compose down -v
+```
+
+---
+
+## 🧪 Running Standalone (without Docker)
+
+### 🐇 1. Start RabbitMQ
 
 ```bash
 docker run -it --rm -d \
@@ -135,11 +288,6 @@ docker run -it --rm -d \
   -p 15672:15672 \
   rabbitmq:3-management
 ```
-
-* UI: [http://localhost:15672](http://localhost:15672)
-* Username: `guest` | Password: `guest`
-
----
 
 ### 🧠 2. Start Redis
 
@@ -150,9 +298,7 @@ docker run -d \
   redis:latest
 ```
 
----
-
-### 🚀 3. Start the Node.js Producer (API Server)
+### 🚀 3. Start Producer
 
 ```bash
 cd producer
@@ -160,57 +306,19 @@ npm install
 npm start
 ```
 
----
-
-### ⚙️ 4. Start the Python Worker (Consumer)
+### ⚙️ 4. Start Worker
 
 ```bash
 cd worker
-pip3 install -r requirements.txt
-python3 consumer.py
+pip install -r requirements.txt
+python consumer.py
+```
+
+### 🌐 5. Start Worker API (in another terminal)
+
+```bash
+cd worker
+python main.py
 ```
 
 ---
-
-## 🌐 API Endpoints
-
-| Method | Route                        | Description                   |
-| ------ | ---------------------------- | ----------------------------- |
-| `GET`  | `/v1/find?url=<spotify_url>` | Queue a Spotify download job  |
-| `GET`  | `/v1/status?jobId=<job_id>`  | Check job status in Redis     |
-| `GET`  | `/v1/download/:song_name`    | Download a completed MP3 file |
-
----
-
-### 📦 Example API Requests
-
-#### 🎶 Queue a song/album/playlist for download
-
-```bash
-GET http://localhost:8000/v1/find?url=https://open.spotify.com/album/6AyUVv7MnxxTuijp4WmrhO
-```
-
-#### 📊 Check job status
-
-```bash
-GET http://localhost:8000/v1/status?jobId=0197fe57-6334-767e-aae2-0dd415799d46
-```
-
-Response from Redis (example):
-
-```json
-{
-  "jobId": "0197fe57-6334-767e-aae2-0dd415799d46",
-  "status": "completed",
-  "songs": ["Muse - Unintended.mp3"]
-}
-```
-
-#### 📥 Download a specific MP3 file
-
-```bash
-GET http://localhost:8000/v1/download/Muse%20-%20Unintended.mp3
-```
-
----
-

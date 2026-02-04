@@ -1,12 +1,27 @@
+import os
 import redis
 import json
 import pika
 import datetime
+import time
 from internal.spotify import spotify
 from internal.downloader import downloader
 from helper.helper import track_model_to_query
+from metrics import (
+    jobs_processed_counter,
+    songs_downloaded_counter,
+    download_duration_histogram,
+    rabbit_connection_status,
+    redis_connection_status,
+    active_downloads_gauge,
+)
 
-r = redis.Redis(host='localhost', port=6379, decode_responses=True)
+redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
+r = redis.from_url(redis_url, decode_responses=True)
+
+rabbit_host = os.getenv("RABBIT_HOST", "localhost")
+rabbit_port = int(os.getenv("RABBIT_PORT", 5672))
+rabbit_url = os.getenv("RABBIT_URL")
 
 def callback(ch, method, properties, body):
     job = json.loads(body)
@@ -14,6 +29,8 @@ def callback(ch, method, properties, body):
     job_id = job["jobId"]
     url = job["url"]
     song_names = []
+    start_time = time.time()
+    active_downloads_gauge.inc()
 
     try:
         content_type = spotify.get_spotify_url_type(url)
@@ -41,6 +58,12 @@ def callback(ch, method, properties, body):
 
         r.set(job_id, json.dumps(result))
         print(f"job {job_id} done")
+        
+        # Record metrics
+        duration = time.time() - start_time
+        download_duration_histogram.observe(duration)
+        songs_downloaded_counter.labels(status='success').inc(len(song_names))
+        jobs_processed_counter.labels(status='completed').inc()
 
     except Exception as e:
         r.set(job_id, json.dumps({
@@ -49,14 +72,48 @@ def callback(ch, method, properties, body):
             "error": str(e)
         }))
         print(f"Job {job_id} failed: {e}")
+        songs_downloaded_counter.labels(status='error').inc()
+        jobs_processed_counter.labels(status='failed').inc()
+    
+    finally:
+        active_downloads_gauge.dec()
+        ch.basic_ack(delivery_tag=method.delivery_tag)
 
-    ch.basic_ack(delivery_tag=method.delivery_tag)
+def connect_rabbit(max_retries=12, base_delay_s=2):
+    attempt = 0
+    while True:
+        try:
+            if rabbit_url:
+                params = pika.URLParameters(rabbit_url)
+            else:
+                params = pika.ConnectionParameters(rabbit_host, rabbit_port, heartbeat=600)
+            conn = pika.BlockingConnection(params)
+            channel = conn.channel()
+            channel.queue_declare(queue='song_jobs', durable=True)
+            channel.basic_qos(prefetch_count=1)
+            rabbit_connection_status.set(1)
+            print("Connected to RabbitMQ")
+            return conn, channel
+        except Exception as e:
+            attempt += 1
+            rabbit_connection_status.set(0)
+            if attempt > max_retries:
+                print(f"Failed to connect to RabbitMQ after {max_retries} attempts: {e}")
+                raise
+            delay = base_delay_s * attempt
+            print(f"RabbitMQ connection failed (attempt {attempt}), retrying in {delay}s: {e}")
+            time.sleep(delay)
 
-# RabbitMQ connection
-conn = pika.BlockingConnection(pika.ConnectionParameters("localhost" , heartbeat= 600))
-channel = conn.channel()
-channel.queue_declare(queue='song_jobs', durable=True)
-channel.basic_qos(prefetch_count=1)
+
+# Set Redis connection status
+try:
+    r.ping()
+    redis_connection_status.set(1)
+except Exception as e:
+    print(f"Redis connection error: {e}")
+    redis_connection_status.set(0)
+
+conn, channel = connect_rabbit()
 channel.basic_consume(queue='song_jobs', on_message_callback=callback)
 
 print("worker waiting for jobs...")

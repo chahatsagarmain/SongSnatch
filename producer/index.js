@@ -3,6 +3,7 @@ const dotenv = require("dotenv");
 const redisClient = require("./redisClient.js");
 const songRouter = require("./router/song");
 const { connectRabbit } = require("./rabbit.js");
+const { register } = require("./metrics.js");
 
 dotenv.config("./.env");
 
@@ -21,6 +22,11 @@ connectRabbit().then(() => {
 
 app.get("/" , (req , res) => {
    res.status(200).json({"message" : "/ route active"})
+});
+
+app.get("/metrics", async (req, res) => {
+    res.set("Content-Type", register.contentType);
+    res.end(await register.metrics());
 });
 
 app.get("/all" , async (req , res) => {

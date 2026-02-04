@@ -1,5 +1,6 @@
 const redis = require("redis");
-const redisClient = redis.createClient();
+const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
+const redisClient = redis.createClient({ url: redisUrl });
 
 redisClient.connect().then(() => {
     console.log("started redis client");

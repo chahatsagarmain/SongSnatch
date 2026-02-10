@@ -59,8 +59,7 @@ Default: `http://localhost:8000`
 | ------ | ------------------------------- | ------------------------------- |
 | POST   | `/v1/spotify/find?url=...`      | Download audio from Spotify URL |
 | GET    | `/v1/song/list`                 | List all downloaded songs       |
-| GET    | `/v1/song/download/{song_name}` | Stream or download specific MP3 |
-| GET    | `/`                             | Root health check               |
+| GET    | `/v1/song/download/{song_name}` | Stream or download specific MP3 |               
 
 ---
 

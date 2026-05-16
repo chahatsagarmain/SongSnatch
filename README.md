@@ -1,12 +1,15 @@
-# 🎵 Spotify Downloader API + CLI + WORKER QUEUE
+# 🎵 Spotify Downloader ( Scalable deployment as well as CLI app )
 
 This project provides an integrated **FastAPI backend** and **Typer CLI tool** to download songs from Spotify links (track, album, or playlist) by searching for the corresponding YouTube audio and saving it locally as `.mp3`.
 
 Apart from the above methods the whole application can be run as a scalable backend using Worker Queue (in our case RabbitMQ) . NodeJS server produces messages which is consumed by our python worker to download songs . 
 
-A deployed instance should be available on https://song-snatch.vercel.app/ , The frontend is deployed on vercel and backend is deployed locally on my laptop exposed with tunneling to a static domain . 
-
 ---
+
+## 🔧 Service Architecture
+<img width="815" height="386" alt="Screenshot 2026-02-10 155755" src="https://github.com/user-attachments/assets/b00625ad-7ebd-4d74-b938-b30cedeb7898" />
+
+
 
 ## 📦 Features
 
@@ -59,8 +62,7 @@ Default: `http://localhost:8000`
 | ------ | ------------------------------- | ------------------------------- |
 | POST   | `/v1/spotify/find?url=...`      | Download audio from Spotify URL |
 | GET    | `/v1/song/list`                 | List all downloaded songs       |
-| GET    | `/v1/song/download/{song_name}` | Stream or download specific MP3 |
-| GET    | `/`                             | Root health check               |
+| GET    | `/v1/song/download/{song_name}` | Stream or download specific MP3 |               
 
 ---
 
@@ -229,70 +231,6 @@ Response:
 ```bash
 curl "http://localhost:8000/v1/download/Muse%20-%20Unintended.mp3" --output song.mp3
 ```
-
----
-
-### 🔧 Service Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                   Docker Compose Network                     │
-├─────────────────────────────────────────────────────────────┤
-│                                                               │
-│  ┌─────────────┐         ┌──────────────┐                   │
-│  │  Producer   │         │   Worker     │                   │
-│  │  (Node.js)  │──RMQ──▶ │ (FastAPI)    │                   │
-│  │  :8000      │  RMQ  │ :8080         │                   │
-│  └─────────────┘  ◀────┘ │              │                   │
-│         │                 │ worker-      │                   │
-│         │                 │ consumer     │                   │
-│         │                 └──────────────┘                   │
-│         │                       │                             │
-│         └──────────────┬────────┘                             │
-│                        │                                      │
-│              ┌─────────▼────────┐                             │
-│              │  Shared Volume   │                             │
-│              │  /tmp/songs      │                             │
-│              └──────────────────┘                             │
-│                                                               │
-│  ┌──────────┐  ┌─────────┐  ┌──────────────┐                │
-│  │  Redis   │  │RabbitMQ │  │ Prometheus   │                │
-│  │ :6379    │  │ :5672   │  │ :9090        │                │
-│  └──────────┘  └─────────┘  └──────────────┘                │
-│                                      │                        │
-│                              ┌───────▼────────┐              │
-│                              │  Grafana       │              │
-│                              │  :3100 (UI)    │              │
-│                              └────────────────┘              │
-│                                                               │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### ⚡ Caching Strategy
-
-The system implements a robust caching layer using **Redis** to minimize redundant API calls and processing:
-*   **Search Caching**: YouTube and JioSaavn search results are cached for 30 days. If the same song is requested again, the system skips the search/download and serves the existing file.
-*   **Job Persistence**: All job metadata and statuses are stored in Redis, allowing the producer to track progress across restarts.
-*   **Performance**: Cached hits reduce processing time from ~10-15 seconds to under 100ms.
-
----
-
-### 🔄 Fallback Mechanism
-
-SongSnatch is designed to be highly resilient. If a YouTube download fails (due to a 403 Forbidden error, regional restrictions, or bot detection), the worker will:
-1. Catch the exception from `yt-dlp`.
-2. Automatically trigger a search on **JioSaavn** using the track metadata.
-3. Download the high-quality audio directly from JioSaavn's CDN.
-
-This ensures that most songs are successfully downloaded even when YouTube's anti-bot measures are aggressive.
-
----
-
-### 🔀 Dead-Letter Queue (DLQ) Integration
-
-The messaging system includes a Dead-Letter Queue setup to handle failed jobs gracefully. If the Python Worker encounters an exception while downloading a song (e.g., network failure, invalid URL), it will negatively acknowledge (`nack`) the message without requeuing it. 
-
-RabbitMQ is configured with a Dead-Letter Exchange (`song_jobs_dlx`) that automatically catches these failed messages and routes them to a dedicated queue (`song_jobs_dlq`) for later inspection, preventing data loss and infinite retry loops.
 
 ---
 

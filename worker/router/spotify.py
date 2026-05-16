@@ -18,7 +18,7 @@ async def download(url : str):
         if content_type == "track":
             track_model = spotify.get_track_metadata(url)
             query = track_model_to_query(track_model)
-            path = downloader.download_first_youtube_audio(query)
+            path = downloader.download_audio(query)
             if path is None:
                 raise ValueError()
             song_name = path.split("/")[-1]
@@ -27,14 +27,13 @@ async def download(url : str):
             track_list_model = spotify.get_track_list_metadata(url , content_type)
             for track_model in track_list_model:
                 query = track_model_to_query(track_model)
-                path = downloader.download_first_youtube_audio(query)
+                path = downloader.download_audio(query)
                 if path is None:
                     continue
                 song_names.append((path.split("/")[-1]))
 
     except Exception as e:
-        raise HTTPException(status_code=500,
-                            content={"message" : str(e)})
+        raise HTTPException(status_code=500)
 
     return JSONResponse(status_code=200,
                         content={"message" : "Songs fetched",

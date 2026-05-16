@@ -34,12 +34,21 @@ def get_track_list_metadata(list_url : str , content_type : str) -> List[Track]:
     track_list_info = None
     track_list = []
     if content_type == "playlist":
-        track_list_info = sp.playlist(list_url)
-        if track_list_info is None:
-            raise ValueError()
-        for item in track_list_info['tracks']['items']:
+        print(f"[SPOTIFY] Fetching playlist items for: {list_url}")
+        results = sp.playlist_items(list_url)
+        if results is None:
+            raise ValueError("Could not fetch playlist items")
+        
+        items = results['items']
+        while results['next']:
+            results = sp.next(results)
+            items.extend(results['items'])
+            
+        print(f"[SPOTIFY] Found {len(items)} tracks in playlist")
+        for item in items:
             track_data = item['track']
-            pprint.pprint(track_data)
+            if not track_data:
+                continue
             track_model = Track(
                 id=track_data['id'],
                 name=track_data['name'],
@@ -47,11 +56,19 @@ def get_track_list_metadata(list_url : str , content_type : str) -> List[Track]:
                 duration_ms=track_data['duration_ms']
             )
             track_list.append(track_model)
-    else:   
-        track_list_info = sp.album(list_url)
-        if track_list_info is None:
-            raise ValueError()
-        for track in track_list_info['tracks']['items']:
+    elif content_type == "album":   
+        print(f"[SPOTIFY] Fetching album tracks for: {list_url}")
+        results = sp.album_tracks(list_url)
+        if results is None:
+            raise ValueError("Could not fetch album tracks")
+        
+        items = results['items']
+        while results['next']:
+            results = sp.next(results)
+            items.extend(results['items'])
+            
+        print(f"[SPOTIFY] Found {len(items)} tracks in album")
+        for track in items:
             track_model = Track(
                 id=track['id'],
                 name=track['name'],
@@ -59,6 +76,9 @@ def get_track_list_metadata(list_url : str , content_type : str) -> List[Track]:
                 duration_ms=track['duration_ms']
             )
             track_list.append(track_model)
+    
+    else:
+        raise ValueError("Invalid content type")
     
     return track_list
 def get_spotify_url_type(url: str) -> Optional[str]:

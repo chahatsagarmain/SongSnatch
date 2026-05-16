@@ -115,6 +115,7 @@ services:
       - WORKER_URL=http://worker:8080
       - REDIS_URL=redis://redis:6379
       - RABBIT_URL=amqp://rabbitmq:5672
+      - PYTHONUNBUFFERED=1
     volumes:
       - songs_data:/tmp/songs
     depends_on:
@@ -133,6 +134,7 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379
       - RABBIT_URL=amqp://rabbitmq:5672
+      - PYTHONUNBUFFERED=1
     volumes:
       - songs_data:/tmp/songs
     command: ["python","consumer.py"]
@@ -143,4 +145,3 @@ services:
         condition: service_healthy
     networks:
       - monitoring
-

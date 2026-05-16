@@ -38,16 +38,22 @@ def callback(ch, method, properties, body):
         if content_type == "track":
             track_model = spotify.get_track_metadata(url)
             query = track_model_to_query(track_model)
-            path = downloader.download_first_youtube_audio(query)
+            path = downloader.download_audio(query, redis_client=r)
+            print(f"path here : {path}")
             if path:
                 song_names.append(path.split("/")[-1])
         else:
+            print(content_type)
             track_list_model = spotify.get_track_list_metadata(url, content_type)
             for track_model in track_list_model:
                 query = track_model_to_query(track_model)
-                path = downloader.download_first_youtube_audio(query)
+                print(query)
+                path = downloader.download_audio(query, redis_client=r)
                 if path:
                     song_names.append(path.split("/")[-1])
+
+        if len(song_names) == 0:
+            raise ValueError("No Songs could be fetched")
 
         result = {
             "jobId": job_id,
@@ -64,6 +70,8 @@ def callback(ch, method, properties, body):
         download_duration_histogram.observe(duration)
         songs_downloaded_counter.labels(status='success').inc(len(song_names))
         jobs_processed_counter.labels(status='completed').inc()
+        
+        ch.basic_ack(delivery_tag=method.delivery_tag)
 
     except Exception as e:
         r.set(job_id, json.dumps({
@@ -74,10 +82,11 @@ def callback(ch, method, properties, body):
         print(f"Job {job_id} failed: {e}")
         songs_downloaded_counter.labels(status='error').inc()
         jobs_processed_counter.labels(status='failed').inc()
+        
+        ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
     
     finally:
         active_downloads_gauge.dec()
-        ch.basic_ack(delivery_tag=method.delivery_tag)
 
 def connect_rabbit(max_retries=12, base_delay_s=2):
     attempt = 0
@@ -89,7 +98,18 @@ def connect_rabbit(max_retries=12, base_delay_s=2):
                 params = pika.ConnectionParameters(rabbit_host, rabbit_port, heartbeat=600)
             conn = pika.BlockingConnection(params)
             channel = conn.channel()
-            channel.queue_declare(queue='song_jobs', durable=True)
+            
+            dlx = 'song_jobs_dlx'
+            dlq = 'song_jobs_dlq'
+            
+            channel.exchange_declare(exchange=dlx, exchange_type='direct', durable=True)
+            channel.queue_declare(queue=dlq, durable=True)
+            channel.queue_bind(exchange=dlx, queue=dlq, routing_key='song_jobs')
+            
+            channel.queue_declare(queue='song_jobs', durable=True, arguments={
+                'x-dead-letter-exchange': dlx,
+                'x-dead-letter-routing-key': 'song_jobs'
+            })
             channel.basic_qos(prefetch_count=1)
             rabbit_connection_status.set(1)
             print("Connected to RabbitMQ")

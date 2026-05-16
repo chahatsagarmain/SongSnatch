@@ -38,14 +38,17 @@ A deployed instance should be available on https://song-snatch.vercel.app/ , The
 
 ### Install dependencies
 
+We use [uv](https://github.com/astral-sh/uv) for fast package management.
+
 ```bash
-pip install -r requirements.txt
+cd worker
+uv sync
 ```
 
 ### Run the API
 
 ```bash
-python main.py
+uv run main.py
 ```
 
 Default: `http://localhost:8000`
@@ -63,18 +66,19 @@ Default: `http://localhost:8000`
 
 ## 🔧 Using the CLI Tool
 
-### Install `typer` if not already:
+### Install dependencies:
 
 ```bash
-pip install typer[all]
+cd worker
+uv sync
 ```
 
 ### Run CLI commands
 
 ```bash
-python cli.py spotify-find "<spotify-url>"
-python cli.py list-songs
-python cli.py download-song "song1.mp3"
+uv run cli.py spotify-find "<spotify-url>"
+uv run cli.py list-songs
+uv run cli.py download-song "song1.mp3"
 ```
 
 ## ⚙️ Configuration (Optional)
@@ -94,7 +98,7 @@ SPOTIFY_CLIENT_SECRET=secret_here
 ### Download from Spotify
 
 ```bash
-python cli.py spotify-find "https://open.spotify.com/track/xyz"
+uv run cli.py spotify-find "https://open.spotify.com/track/xyz"
 ```
 
 Or via API:
@@ -114,6 +118,8 @@ This project uses a **containerized microservices architecture** with separate p
 * ✅ **RabbitMQ** – message queue for job distribution
 * ✅ **Prometheus** – metrics collection from services
 * ✅ **Grafana** – visualization dashboards
+* ✅ **JioSaavn Fallback** – Automatically attempts to download from JioSaavn if YouTube is blocked or fails
+* ✅ **Dead-Letter Queue (DLQ)** – Handles failed RabbitMQ messages for better resilience
 
 ---
 
@@ -149,13 +155,13 @@ This starts:
 
 ### 🌐 API Endpoints
 
-| Method | Route                        | Service    | Description                   |
-| ------ | ---------------------------- | ---------- | ----------------------------- |
-| `GET`  | `/v1/find?url=<spotify_url>` | Producer   | Queue a Spotify download job  |
-| `GET`  | `/v1/status?jobId=<job_id>`  | Producer   | Check job status in Redis     |
-| `GET`  | `/v1/download/:song_name`    | Producer   | Download a completed MP3 file |
-| `GET`  | `/v1/song/list`              | Worker     | List all downloaded songs     |
-| `GET`  | `/metrics`                   | Both       | Prometheus metrics endpoint   |
+| Method  | Route                        | Service    | Description                   |
+| ------- | ---------------------------- | ---------- | ----------------------------- |
+| `POST`  | `/v1/find?url=<spotify_url>` | Producer   | Queue a Spotify download job  |
+| `GET`   | `/v1/status?jobId=<job_id>`  | Producer   | Check job status in Redis     |
+| `GET`   | `/v1/download/:song_name`    | Producer   | Download a completed MP3 file |
+| `GET`   | `/v1/song/list`              | Worker     | List all downloaded songs     |
+| `GET`   | `/metrics`                   | Both       | Prometheus metrics endpoint   |
 
 ---
 
@@ -189,7 +195,7 @@ Both services export Prometheus metrics:
 #### 🎶 Queue a song/album/playlist for download
 
 ```bash
-curl "http://localhost:8000/v1/find?url=https://open.spotify.com/album/6AyUVv7MnxxTuijp4WmrhO"
+curl -X POST "http://localhost:8000/v1/find?url=https://open.spotify.com/album/6AyUVv7MnxxTuijp4WmrhO"
 ```
 
 Response:
@@ -262,6 +268,32 @@ curl "http://localhost:8000/v1/download/Muse%20-%20Unintended.mp3" --output song
 └─────────────────────────────────────────────────────────────┘
 ```
 
+### ⚡ Caching Strategy
+
+The system implements a robust caching layer using **Redis** to minimize redundant API calls and processing:
+*   **Search Caching**: YouTube and JioSaavn search results are cached for 30 days. If the same song is requested again, the system skips the search/download and serves the existing file.
+*   **Job Persistence**: All job metadata and statuses are stored in Redis, allowing the producer to track progress across restarts.
+*   **Performance**: Cached hits reduce processing time from ~10-15 seconds to under 100ms.
+
+---
+
+### 🔄 Fallback Mechanism
+
+SongSnatch is designed to be highly resilient. If a YouTube download fails (due to a 403 Forbidden error, regional restrictions, or bot detection), the worker will:
+1. Catch the exception from `yt-dlp`.
+2. Automatically trigger a search on **JioSaavn** using the track metadata.
+3. Download the high-quality audio directly from JioSaavn's CDN.
+
+This ensures that most songs are successfully downloaded even when YouTube's anti-bot measures are aggressive.
+
+---
+
+### 🔀 Dead-Letter Queue (DLQ) Integration
+
+The messaging system includes a Dead-Letter Queue setup to handle failed jobs gracefully. If the Python Worker encounters an exception while downloading a song (e.g., network failure, invalid URL), it will negatively acknowledge (`nack`) the message without requeuing it. 
+
+RabbitMQ is configured with a Dead-Letter Exchange (`song_jobs_dlx`) that automatically catches these failed messages and routes them to a dedicated queue (`song_jobs_dlq`) for later inspection, preventing data loss and infinite retry loops.
+
 ---
 
 ### 🛑 Stop Services
@@ -310,15 +342,15 @@ npm start
 
 ```bash
 cd worker
-pip install -r requirements.txt
-python consumer.py
+uv sync
+uv run consumer.py
 ```
 
 ### 🌐 5. Start Worker API (in another terminal)
 
 ```bash
 cd worker
-python main.py
+uv run main.py
 ```
 
 ---

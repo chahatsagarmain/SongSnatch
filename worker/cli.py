@@ -24,7 +24,7 @@ def spotify_find(url: str):
         if content_type == "track":
             track_model = spotify.get_track_metadata(url)
             query = track_model_to_query(track_model)
-            path = downloader.download_first_youtube_audio(query)
+            path = downloader.download_audio(query)
             if path is None:
                 typer.echo("❌ No audio found.")
                 raise typer.Exit(code=1)
@@ -33,7 +33,7 @@ def spotify_find(url: str):
             track_list_model = spotify.get_track_list_metadata(url, content_type)
             for track_model in track_list_model:
                 query = track_model_to_query(track_model)
-                path = downloader.download_first_youtube_audio(query)
+                path = downloader.download_audio(query)
                 if path:
                     song_names.append(path.split("/")[-1])
 

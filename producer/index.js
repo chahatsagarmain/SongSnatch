@@ -20,8 +20,8 @@ connectRabbit().then(() => {
     process.exit(1);
 });
 
-app.get("/" , (req , res) => {
-   res.status(200).json({"message" : "/ route active"})
+app.get("/", (req, res) => {
+    res.status(200).json({ "message": "/ route active" })
 });
 
 app.get("/metrics", async (req, res) => {
@@ -29,34 +29,38 @@ app.get("/metrics", async (req, res) => {
     res.end(await register.metrics());
 });
 
-app.get("/all" , async (req , res) => {
+app.get("/all", async (req, res) => {
     // get all of redis data 
-    try{
+    try {
         const keys = await redisClient.keys("*"); // get all keys with the wildcard patten;
-        if(keys.length == 0){
-            return res.status(200).json({"data" : []});
+        if (keys.length == 0) {
+            return res.status(200).json({ "data": [] });
         }
-        
-        var jobs = keys.map(async (key , index) => {
+
+        var jobs = keys.map(async (key, index) => {
             const data = await redisClient.get(key);
             return data;
         });
 
         // jobs is ending up storing [Promises , Promises] we need to resolve it all using Promise.all
         jobs = await Promise.all(jobs);
-        
-        return res.status(200).json({"data" : jobs});
+
+        jobs = jobs.map((value, index) => {
+            return JSON.parse(value);
+        });
+
+        return res.status(200).json({ "data": jobs });
     }
-    catch(error){
+    catch (error) {
         console.log(error);
         return res.status(500);
     }
 });
 
-routerV1.use("/v1",songRouter);
+routerV1.use("/v1", songRouter);
 
 app.use(routerV1);
 
-app.listen(PORT , () => { 
-    console.log(`starting up server at ${PORT}` );
+app.listen(PORT, () => {
+    console.log(`starting up server at ${PORT}`);
 });

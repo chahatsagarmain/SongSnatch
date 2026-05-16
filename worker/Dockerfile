@@ -1,19 +1,21 @@
 # Dockerfile for worker (FastAPI)
 FROM python:3.11-slim
 
-WORKDIR /app
+COPY --from=ghcr.io/astral-sh/uv:0.9.2 /uv /bin/
 
-# Install dependencies
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
-# Source - https://stackoverflow.com/a/73088647
-# Posted by Pritam Sinha
-# Retrieved 2026-02-05, License - CC BY-SA 4.0
+WORKDIR /app
 
 RUN apt-get -y update && apt-get -y upgrade && apt-get install -y --no-install-recommends ffmpeg
 
+# Install dependencies
+COPY pyproject.toml uv.lock ./
+RUN uv sync --locked --no-dev
+
 # Copy application
 COPY . .
+
+# Ensure the virtual environment is in the PATH
+ENV PATH="/app/.venv/bin:$PATH"
 
 ENV WORKER_PORT=8000
 EXPOSE 8000

@@ -1,14 +1,7 @@
-    {
-      "builds": [
-        {
-          "src": "./main.py",
-          "use": "@vercel/python"
-        }
-      ],
-      "routes": [
-        {
-          "src": "/(.*)",
-          "dest": "/main.py"
-        }
-      ]
+{
+  "functions": {
+    "worker/**/*.py": {
+      "runtime": "@vercel/python@latest"
     }
+  }
+}

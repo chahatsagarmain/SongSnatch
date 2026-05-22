@@ -1,7 +1,0 @@
-{
-  "functions": {
-    "worker/**/*.py": {
-      "runtime": "@vercel/python@latest"
-    }
-  }
-}

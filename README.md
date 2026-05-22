@@ -7,7 +7,7 @@ By leveraging a producer-consumer pattern, SongSnatch can handle high-concurrenc
 ---
 
 ## 🔧 Service Architecture
-<img width="815" height="386" alt="Service Architecture" src="https://github.com/user-attachments/assets/b00625ad-7ebd-4d74-b938-b30cedeb7898" />
+<img width="2698" height="1603" alt="Untitled-2025-11-01-0300 (1)" src="https://github.com/user-attachments/assets/2aef5ea4-8647-4d80-b698-39a38ed3ac68" />
 
 ---
 
@@ -15,16 +15,16 @@ By leveraging a producer-consumer pattern, SongSnatch can handle high-concurrenc
 
 SongSnatch is built to handle the volatility of the web with multiple layers of redundancy:
 
-### 🔄 Intelligent Fallback Mechanism
+### 🔄 Fallback Mechanism
 If a YouTube download is blocked (due to anti-bot measures, 403 errors, or regional restrictions), the worker automatically switches to **JioSaavn**. It fetches high-quality audio directly from JioSaavn's CDN, ensuring your downloads never fail.
 
-### ⚡ Distributed Caching (Redis)
+### ⚡Caching (Redis)
 To ensure lightning-fast performance, we implement a multi-level caching strategy:
 - **Search Caching**: YouTube and JioSaavn results are cached for 30 days.
-- **Job Persistence**: The entire job lifecycle is managed in Redis, allowing for seamless recovery after service restarts.
+- **Job Status store**: The entire job lifecycle is managed in Redis, allowing for seamless and fast operations .
 
 ### 🔀 Reliability with DLQ
-Failed download jobs are never lost. We utilize **RabbitMQ Dead-Letter Queues (DLQ)** to catch and store problematic messages, allowing for easy debugging and inspection without disrupting the main processing pipeline.
+Failed download jobs are never lost. We utilize **RabbitMQ Dead-Letter Queues (DLQ)** to catch and store problematic messages, allowing for easy debugging and inspection without disrupting the main processing pipeline. 
 
 
 
@@ -100,7 +100,7 @@ uv run cli.py list-songs
 uv run cli.py download-song "song1.mp3"
 ```
 
-## ⚙️ Configuration (Optional)
+## ⚙️ Configuration
 
 Set the port in `.env`:
 Enter the spotify dev account credentials

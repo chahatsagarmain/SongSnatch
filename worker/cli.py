@@ -17,7 +17,7 @@ def spotify_find(url: str):
     song_names = []
 
     if not content_type:
-        typer.echo("❌ Invalid content type. Use correct Spotify URL.")
+        typer.echo("Invalid content type. Use correct Spotify URL.")
         raise typer.Exit(code=1)
 
     try:
@@ -26,7 +26,7 @@ def spotify_find(url: str):
             query = track_model_to_query(track_model)
             path = downloader.download_audio(query)
             if path is None:
-                typer.echo("❌ No audio found.")
+                typer.echo("No audio found.")
                 raise typer.Exit(code=1)
             song_names.append(path.split("/")[-1])
         else:
@@ -37,10 +37,10 @@ def spotify_find(url: str):
                 if path:
                     song_names.append(path.split("/")[-1])
 
-        typer.echo(f"✅ Downloaded: {', '.join(song_names)}")
+        typer.echo(f"Downloaded: {', '.join(song_names)}")
 
     except Exception as e:
-        typer.echo(f"❌ Error: {str(e)}")
+        typer.echo(f"Error: {str(e)}")
         raise typer.Exit(code=1)
 
 
@@ -50,12 +50,12 @@ def list_songs():
     List all downloaded MP3 songs.
     """
     if not os.path.exists(songs_dir):
-        typer.echo("📁 Song directory not found.")
+        typer.echo("Song directory not found.")
         return
 
     files = [f for f in os.listdir(songs_dir) if f.endswith(".mp3")]
     if not files:
-        typer.echo("🎵 No songs found.")
+        typer.echo("No songs found.")
         return
 
     for i, f in enumerate(files, 1):

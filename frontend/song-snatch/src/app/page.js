@@ -15,7 +15,15 @@ export default function Home() {
   const [error, setError] = useState(null);
 
   const fetchSongs = async () => {
-    if (query === "") return;
+    if (query.trim() === "") return;
+    
+    // Validate Spotify URL format
+    const spotifyPattern = /open\.spotify\.com\/(track|album|playlist)\/[a-zA-Z0-9]+/;
+    if (!spotifyPattern.test(query)) {
+      setError("Please ensure the link is a correct type (Spotify Track, Album, or Playlist URL).");
+      return;
+    }
+
     setIsLoading(true);
     setSongs([]);
     setError(null);
@@ -49,6 +57,9 @@ export default function Home() {
           } catch (_) {
             errorMessage = res.statusText || errorMessage;
           }
+        }
+        if (res.status === 400 || errorMessage.toLowerCase().includes("invalid content type") || errorMessage.toLowerCase().includes("url type")) {
+          errorMessage = "Please ensure the link is a correct type (Spotify Track, Album, or Playlist URL).";
         }
         throw new Error(errorMessage);
       }

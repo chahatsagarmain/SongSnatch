@@ -6,6 +6,11 @@ import { Providers } from "./provider";
 export const metadata = {
   title: "SongSnatch",
   description: "Fetch and download your favorite songs",
+  icons: {
+    icon: "/song-snatch.png",
+    shortcut: "/song-snatch.png",
+    apple: "/song-snatch.png",
+  },
 };
 
 export default function RootLayout({ children }) {

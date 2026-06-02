@@ -1,6 +1,7 @@
 import "./globals.css";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
+import Script from "next/script";
 import { Providers } from "./provider";
 
 export const metadata = {
@@ -26,6 +27,9 @@ export default function RootLayout({ children }) {
             <Footer />
           </div>
         </Providers>
+        <Script
+        src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "c9968f961f144ea39d77ab400df666dd"}'
+        />
       </body>
     </html>
   );

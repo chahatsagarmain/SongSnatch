@@ -6,7 +6,7 @@ from helper.helper import track_model_to_query
 
 app = typer.Typer()
 
-songs_dir = "./songs"
+songs_dir = "/tmp/songs"
 
 @app.command()
 def spotify_find(url: str):
@@ -60,6 +60,22 @@ def list_songs():
 
     for i, f in enumerate(files, 1):
         typer.echo(f"{i}. {f}")
+
+
+@app.command()
+def get_song_path(name: str):
+    """
+    Get the absolute path of a downloaded MP3 song by name.
+    """
+    if not name.endswith(".mp3"):
+        name += ".mp3"
+    
+    path = os.path.join(songs_dir, name)
+    if os.path.exists(path):
+        typer.echo(os.path.abspath(path))
+    else:
+        typer.echo(f"Song '{name}' not found in {songs_dir}.")
+        raise typer.Exit(code=1)
 
 
 if __name__ == "__main__":

@@ -4,6 +4,7 @@ import json
 import pika
 import datetime
 import time
+from concurrent.futures import ProcessPoolExecutor
 from internal.spotify import spotify
 from internal.downloader import downloader
 from helper.helper import track_model_to_query
@@ -133,8 +134,17 @@ except Exception as e:
     print(f"Redis connection error: {e}")
     redis_connection_status.set(0)
 
-conn, channel = connect_rabbit()
-channel.basic_consume(queue='song_jobs', on_message_callback=callback)
+def start_consuming(worker_num : int):
+    conn, channel = connect_rabbit()
+    channel.basic_consume(queue='song_jobs', on_message_callback=callback)
 
-print("worker waiting for jobs...")
-channel.start_consuming()
+    print(f"worker {worker_num} waiting for jobs...")
+    channel.start_consuming()
+
+def main():
+    ids = [i for i in range(5)]
+    with ProcessPoolExecutor() as executor:
+        executor.map(start_consuming , ids)
+
+if __name__ == "__main__":
+    main()

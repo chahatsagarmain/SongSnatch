@@ -24,9 +24,10 @@ rabbit_host = os.getenv("RABBIT_HOST", "localhost")
 rabbit_port = int(os.getenv("RABBIT_PORT", 5672))
 rabbit_url = os.getenv("RABBIT_URL")
 
-def callback(ch, method, properties, body):
+def callback(ch, method, properties, body, worker_id=None):
     job = json.loads(body)
-    print(job)
+    worker_prefix = f"worker {worker_id} " if worker_id is not None else ""
+    print(f"{worker_prefix}consuming job: {job}")
     job_id = job["jobId"]
     url = job["url"]
     song_names = []
@@ -40,15 +41,15 @@ def callback(ch, method, properties, body):
             track_model = spotify.get_track_metadata(url)
             query = track_model_to_query(track_model)
             path = downloader.download_audio(query, redis_client=r)
-            print(f"path here : {path}")
+            print(f"{worker_prefix}path here : {path}")
             if path:
                 song_names.append(path.split("/")[-1])
         else:
-            print(content_type)
+            print(f"{worker_prefix}content_type: {content_type}")
             track_list_model = spotify.get_track_list_metadata(url, content_type)
             for track_model in track_list_model:
                 query = track_model_to_query(track_model)
-                print(query)
+                print(f"{worker_prefix}query: {query}")
                 path = downloader.download_audio(query, redis_client=r)
                 if path:
                     song_names.append(path.split("/")[-1])
@@ -64,7 +65,7 @@ def callback(ch, method, properties, body):
         }
 
         r.set(job_id, json.dumps(result))
-        print(f"job {job_id} done")
+        print(f"{worker_prefix}job {job_id} done")
         
         # Record metrics
         duration = time.time() - start_time
@@ -80,7 +81,7 @@ def callback(ch, method, properties, body):
             "status": "error",
             "error": str(e)
         }))
-        print(f"Job {job_id} failed: {e}")
+        print(f"{worker_prefix}Job {job_id} failed: {e}")
         songs_downloaded_counter.labels(status='error').inc()
         jobs_processed_counter.labels(status='failed').inc()
         
@@ -136,7 +137,13 @@ except Exception as e:
 
 def start_consuming(worker_num : int):
     conn, channel = connect_rabbit()
-    channel.basic_consume(queue='song_jobs', on_message_callback=callback)
+    channel.basic_consume(
+        queue='song_jobs',
+        on_message_callback=lambda ch, method, properties, body: callback(
+            ch, method, properties, body, worker_id=worker_num
+        ),
+        arguments={"id": worker_num}
+    )
 
     print(f"worker {worker_num} waiting for jobs...")
     channel.start_consuming()

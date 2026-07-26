@@ -8,14 +8,14 @@ An asynchronous background worker queue and processing system for **SongSnatch**
 
 ```mermaid
 graph TD
-    A[RabbitMQ queue: song_jobs] --> B[Mocked / Real Consumer]
-    B -->|Concurrent Workers| C[ProcessPoolExecutor]
-    C -->|Fetch Meta| D[Spotify API]
-    C -->|Download Audio| E[yt-dlp / JioSaavn]
-    C -->|Save MP3| F[/tmp/songs]
-    C -->|Update Status| G[(Redis Cache)]
-    C -->|Push Metrics| H[Prometheus Registry]
-    I[FastAPI App /metrics] -->|Scrapes| H
+    A["RabbitMQ queue: song_jobs"] --> B["Mocked / Real Consumer"]
+    B -->|Concurrent Workers| C["ProcessPoolExecutor"]
+    C -->|Fetch Meta| D["Spotify API"]
+    C -->|Download Audio| E["yt-dlp / JioSaavn"]
+    C -->|Save MP3| F["/tmp/songs"]
+    C -->|Update Status| G[("Redis Cache")]
+    C -->|Push Metrics| H["Prometheus Registry"]
+    I["FastAPI App /metrics"] -->|Scrapes| H
 ```
 
 - **Consumer (`consumer.py`)**: Runs multiple parallel worker processes (via `ProcessPoolExecutor`) to subscribe to the RabbitMQ queue `song_jobs`, process requests, download files, and ack/nack messages.
